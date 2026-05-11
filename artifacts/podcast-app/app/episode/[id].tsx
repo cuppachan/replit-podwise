@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import {
+  ActivityIndicator,
   Platform,
   Pressable,
   ScrollView,
@@ -12,6 +13,16 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
+import { useAudioPlayer } from '@/context/AudioPlayerContext';
+
+const RATES = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+
+function secsToDisplay(secs: number): string {
+  const s = Math.floor(secs);
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return `${m}:${rem.toString().padStart(2, '0')}`;
+}
 
 export default function EpisodeDetailScreen() {
   const colors = useColors();
@@ -28,6 +39,10 @@ export default function EpisodeDetailScreen() {
     podcastId: string;
   }>();
 
+  const { episode, isPlaying, isLoading, position, duration, rate, play, togglePlayPause, seekTo, setRate } =
+    useAudioPlayer();
+
+  const isThisEpisode = episode?.id === params.id;
   const isWeb = Platform.OS === 'web';
   const topInset = isWeb ? 67 : insets.top;
 
@@ -39,6 +54,37 @@ export default function EpisodeDetailScreen() {
         day: 'numeric',
       })
     : '';
+
+  const handlePlay = () => {
+    if (isThisEpisode) {
+      togglePlayPause();
+    } else if (params.audioUrl) {
+      play({
+        id: params.id,
+        title: params.title ?? '',
+        podcastTitle: params.podcastTitle ?? '',
+        podcastArtwork: params.podcastArtwork ?? '',
+        audioUrl: params.audioUrl,
+        duration: params.duration ?? '',
+      });
+    }
+  };
+
+  const activePos = isThisEpisode ? position : 0;
+  const activeDur = isThisEpisode ? duration : 0;
+  const progress = activeDur > 0 ? activePos / activeDur : 0;
+  const showLoading = isThisEpisode && isLoading;
+  const showPlaying = isThisEpisode && isPlaying;
+
+  const nextRate = () => {
+    const idx = RATES.indexOf(rate);
+    const next = RATES[(idx + 1) % RATES.length];
+    setRate(next);
+  };
+
+  const skip = (deltaSecs: number) => {
+    seekTo(Math.max(0, Math.min(activePos + deltaSecs, activeDur)));
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -86,14 +132,68 @@ export default function EpisodeDetailScreen() {
           ) : null}
         </View>
 
-        <Pressable
-          style={[styles.playBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
-          onPress={() => {}}
-          testID="play-button"
-        >
-          <Ionicons name="play" size={22} color="#fff" />
-          <Text style={styles.playBtnText}>Play Episode</Text>
-        </Pressable>
+        {params.audioUrl ? (
+          <View style={styles.playerSection}>
+            <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { backgroundColor: colors.primary, width: `${progress * 100}%` },
+                ]}
+              />
+            </View>
+
+            <View style={styles.timeRow}>
+              <Text style={[styles.timeText, { color: colors.mutedForeground }]}>
+                {secsToDisplay(activePos)}
+              </Text>
+              <Text style={[styles.timeText, { color: colors.mutedForeground }]}>
+                -{secsToDisplay(Math.max(0, activeDur - activePos))}
+              </Text>
+            </View>
+
+            <View style={styles.controls}>
+              <Pressable onPress={() => skip(-15)} hitSlop={8} style={styles.skipBtn}>
+                <Ionicons name="play-back" size={26} color={colors.foreground} />
+                <Text style={[styles.skipLabel, { color: colors.mutedForeground }]}>15</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.playBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
+                onPress={handlePlay}
+                testID="play-button"
+              >
+                {showLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name={showPlaying ? 'pause' : 'play'} size={28} color="#fff" />
+                )}
+              </Pressable>
+
+              <Pressable onPress={() => skip(30)} hitSlop={8} style={styles.skipBtn}>
+                <Ionicons name="play-forward" size={26} color={colors.foreground} />
+                <Text style={[styles.skipLabel, { color: colors.mutedForeground }]}>30</Text>
+              </Pressable>
+            </View>
+
+            <Pressable
+              onPress={nextRate}
+              style={[styles.rateBtn, { borderColor: colors.border, borderRadius: colors.radius / 2 }]}
+              hitSlop={8}
+            >
+              <Text style={[styles.rateText, { color: colors.mutedForeground }]}>
+                {rate === 1 ? '1×' : `${rate}×`}
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={[styles.noAudio, { borderColor: colors.border }]}>
+            <Ionicons name="alert-circle-outline" size={20} color={colors.mutedForeground} />
+            <Text style={[styles.noAudioText, { color: colors.mutedForeground }]}>
+              No audio available for this episode
+            </Text>
+          </View>
+        )}
 
         {params.description ? (
           <View style={[styles.descriptionBox, { borderTopColor: colors.border }]}>
@@ -125,7 +225,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 24,
-    paddingBottom: 60,
+    paddingBottom: 80,
     alignItems: 'center',
   },
   artworkContainer: {
@@ -160,24 +260,82 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     gap: 16,
-    marginBottom: 28,
+    marginBottom: 32,
   },
   metaText: {
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
   },
+  playerSection: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 32,
+    gap: 8,
+  },
+  progressTrack: {
+    width: '100%',
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: 4,
+    borderRadius: 2,
+  },
+  timeRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  timeText: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+  },
+  controls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 28,
+    marginVertical: 8,
+  },
+  skipBtn: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  skipLabel: {
+    fontSize: 10,
+    fontFamily: 'Inter_600SemiBold',
+  },
   playBtn: {
+    width: 68,
+    height: 68,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rateBtn: {
+    marginTop: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  rateText: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  noAudio: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 40,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     marginBottom: 32,
   },
-  playBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Inter_600SemiBold',
+  noAudioText: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
   },
   descriptionBox: {
     width: '100%',

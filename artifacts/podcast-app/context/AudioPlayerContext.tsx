@@ -1,0 +1,148 @@
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import type { AudioPlayer, AudioStatus } from 'expo-audio';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+
+export interface PlayerEpisode {
+  id: string;
+  title: string;
+  podcastTitle: string;
+  podcastArtwork: string;
+  audioUrl: string;
+  duration: string;
+}
+
+interface AudioPlayerContextType {
+  episode: PlayerEpisode | null;
+  isPlaying: boolean;
+  position: number;
+  duration: number;
+  isLoading: boolean;
+  rate: number;
+  play: (episode: PlayerEpisode) => void;
+  togglePlayPause: () => void;
+  seekTo: (seconds: number) => void;
+  setRate: (rate: number) => void;
+  dismiss: () => void;
+}
+
+const AudioPlayerContext = createContext<AudioPlayerContextType | null>(null);
+
+export function AudioPlayerProvider({ children }: { children: React.ReactNode }) {
+  const playerRef = useRef<AudioPlayer | null>(null);
+  const [episode, setEpisode] = useState<PlayerEpisode | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [rate, setRateState] = useState(1.0);
+
+  useEffect(() => {
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+    }).catch(() => {});
+    return () => {
+      playerRef.current?.remove();
+      playerRef.current = null;
+    };
+  }, []);
+
+  const attachListener = useCallback((player: AudioPlayer) => {
+    const sub = player.addListener('playbackStatusUpdate', (status: AudioStatus) => {
+      setIsPlaying(status.playing);
+      setPosition(status.currentTime);
+      if (status.duration) setDuration(status.duration);
+      if (status.isLoaded) setIsLoading(false);
+      if (status.didJustFinish) {
+        setIsPlaying(false);
+        setPosition(0);
+      }
+    });
+    return sub;
+  }, []);
+
+  const play = useCallback(
+    (ep: PlayerEpisode) => {
+      if (playerRef.current) {
+        playerRef.current.remove();
+        playerRef.current = null;
+      }
+      setEpisode(ep);
+      setPosition(0);
+      setDuration(0);
+      setIsPlaying(false);
+      setIsLoading(true);
+
+      const player = createAudioPlayer({ uri: ep.audioUrl }, { updateInterval: 500 });
+      playerRef.current = player;
+      attachListener(player);
+      player.play();
+    },
+    [attachListener],
+  );
+
+  const togglePlayPause = useCallback(() => {
+    if (!playerRef.current) return;
+    if (isPlaying) {
+      playerRef.current.pause();
+    } else {
+      playerRef.current.play();
+    }
+  }, [isPlaying]);
+
+  const seekTo = useCallback((seconds: number) => {
+    playerRef.current?.seekTo(seconds);
+  }, []);
+
+  const setRate = useCallback(
+    (newRate: number) => {
+      setRateState(newRate);
+      if (playerRef.current) {
+        playerRef.current.setPlaybackRate(newRate);
+      }
+    },
+    [],
+  );
+
+  const dismiss = useCallback(() => {
+    playerRef.current?.remove();
+    playerRef.current = null;
+    setEpisode(null);
+    setIsPlaying(false);
+    setPosition(0);
+    setDuration(0);
+  }, []);
+
+  return (
+    <AudioPlayerContext.Provider
+      value={{
+        episode,
+        isPlaying,
+        position,
+        duration,
+        isLoading,
+        rate,
+        play,
+        togglePlayPause,
+        seekTo,
+        setRate,
+        dismiss,
+      }}
+    >
+      {children}
+    </AudioPlayerContext.Provider>
+  );
+}
+
+export function useAudioPlayer() {
+  const ctx = useContext(AudioPlayerContext);
+  if (!ctx) throw new Error('useAudioPlayer must be used inside AudioPlayerProvider');
+  return ctx;
+}

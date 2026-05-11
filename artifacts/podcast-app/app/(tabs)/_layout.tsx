@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { MiniPlayer } from "@/components/MiniPlayer";
 
 function NativeTabLayout() {
   return (
@@ -35,70 +36,73 @@ function ClassicTabLayout() {
   const isWeb = Platform.OS === "web";
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.mutedForeground,
-        headerShown: false,
-        tabBarStyle: {
-          position: "absolute",
-          backgroundColor: isIOS ? "transparent" : colors.background,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: colors.border,
-          elevation: 0,
-          ...(isWeb ? { height: 84 } : {}),
-        },
-        tabBarBackground: () =>
-          isIOS ? (
-            <BlurView
-              intensity={100}
-              tint={isDark ? "dark" : "light"}
-              style={StyleSheet.absoluteFill}
-            />
-          ) : isWeb ? (
-            <View
-              style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]}
-            />
-          ) : null,
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Inbox",
-          tabBarIcon: ({ color }) =>
+    <View style={{ flex: 1 }}>
+      <Tabs
+        screenOptions={{
+          tabBarActiveTintColor: colors.primary,
+          tabBarInactiveTintColor: colors.mutedForeground,
+          headerShown: false,
+          tabBarStyle: {
+            position: "absolute",
+            backgroundColor: isIOS ? "transparent" : colors.background,
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: colors.border,
+            elevation: 0,
+            ...(isWeb ? { height: 84 } : {}),
+          },
+          tabBarBackground: () =>
             isIOS ? (
-              <SymbolView name="tray" tintColor={color} size={24} />
-            ) : (
-              <Ionicons name="mail-outline" size={22} color={color} />
-            ),
+              <BlurView
+                intensity={100}
+                tint={isDark ? "dark" : "light"}
+                style={StyleSheet.absoluteFill}
+              />
+            ) : isWeb ? (
+              <View
+                style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]}
+              />
+            ) : null,
         }}
-      />
-      <Tabs.Screen
-        name="discover"
-        options={{
-          title: "Discover",
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="magnifyingglass" tintColor={color} size={24} />
-            ) : (
-              <Ionicons name="search-outline" size={22} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="library"
-        options={{
-          title: "Library",
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="books.vertical" tintColor={color} size={24} />
-            ) : (
-              <Ionicons name="library-outline" size={22} color={color} />
-            ),
-        }}
-      />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "Inbox",
+            tabBarIcon: ({ color }) =>
+              isIOS ? (
+                <SymbolView name="tray" tintColor={color} size={24} />
+              ) : (
+                <Ionicons name="mail-outline" size={22} color={color} />
+              ),
+          }}
+        />
+        <Tabs.Screen
+          name="discover"
+          options={{
+            title: "Discover",
+            tabBarIcon: ({ color }) =>
+              isIOS ? (
+                <SymbolView name="magnifyingglass" tintColor={color} size={24} />
+              ) : (
+                <Ionicons name="search-outline" size={22} color={color} />
+              ),
+          }}
+        />
+        <Tabs.Screen
+          name="library"
+          options={{
+            title: "Library",
+            tabBarIcon: ({ color }) =>
+              isIOS ? (
+                <SymbolView name="books.vertical" tintColor={color} size={24} />
+              ) : (
+                <Ionicons name="library-outline" size={22} color={color} />
+              ),
+          }}
+        />
+      </Tabs>
+      <MiniPlayer />
+    </View>
   );
 }
 

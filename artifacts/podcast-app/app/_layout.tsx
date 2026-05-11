@@ -15,6 +15,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PodcastProvider } from "@/context/PodcastContext";
+import { AudioPlayerProvider } from "@/context/AudioPlayerContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -58,9 +59,11 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
-              <PodcastProvider>
-                <RootLayoutNav />
-              </PodcastProvider>
+              <AudioPlayerProvider>
+                <PodcastProvider>
+                  <RootLayoutNav />
+                </PodcastProvider>
+              </AudioPlayerProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>
