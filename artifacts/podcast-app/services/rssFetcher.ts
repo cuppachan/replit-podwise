@@ -1,7 +1,10 @@
 import type { Episode, Podcast } from '@/types/podcast';
 
-const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
-  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+const _domain = process.env.EXPO_PUBLIC_DOMAIN ?? '';
+const API_BASE = _domain
+  ? _domain.startsWith('http://') || _domain.startsWith('https://')
+    ? _domain
+    : `https://${_domain}`
   : '';
 
 function hashStr(str: string): string {

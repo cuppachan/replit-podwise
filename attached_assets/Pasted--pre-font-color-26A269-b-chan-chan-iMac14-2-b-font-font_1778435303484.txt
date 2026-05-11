@@ -1,0 +1,33 @@
+<pre><font color="#26A269"><b>chan@chan-iMac14-2</b></font>:<font color="#12488B"><b>~/Cross-Platform-Podcast/artifacts/api-server</b></font>$ pnpm --filter @workspace/api-server run dev
+<font color="#AAAAAA">$ export NODE_ENV=development &amp;&amp; pnpm run build &amp;&amp; pnpm run start</font>
+<font color="#AAAAAA">$ node ./build.mjs</font>
+
+  <font color="#D0CFCC">dist/</font><b>index.mjs</b>                       <font color="#A2734C">1.4mb ⚠️</font>
+  <font color="#D0CFCC">dist/</font><b>pino-worker.mjs</b>               <font color="#2AA1B3">153.4kb</font>
+  <font color="#D0CFCC">dist/</font><b>pino-file.mjs</b>                 <font color="#2AA1B3">142.1kb</font>
+  <font color="#D0CFCC">dist/</font><b>pino-pretty.mjs</b>               <font color="#2AA1B3">114.6kb</font>
+  <font color="#D0CFCC">dist/</font><b>thread-stream-worker.mjs</b>        <font color="#2AA1B3">7.3kb</font>
+  <font color="#D0CFCC">dist/</font><b>index.mjs.map</b>                   <font color="#2AA1B3">2.1mb</font>
+  <font color="#D0CFCC">dist/</font><b>pino-worker.mjs.map</b>           <font color="#2AA1B3">256.9kb</font>
+  <font color="#D0CFCC">dist/</font><b>pino-file.mjs.map</b>             <font color="#2AA1B3">229.1kb</font>
+  <font color="#D0CFCC">dist/</font><b>pino-pretty.mjs.map</b>           <font color="#2AA1B3">203.9kb</font>
+  <font color="#D0CFCC">dist/</font><b>thread-stream-worker.mjs.map</b>   <font color="#2AA1B3">12.0kb</font>
+
+⚡ <font color="#26A269">Done in 153ms</font>
+<font color="#AAAAAA">$ node --enable-source-maps ./dist/index.mjs</font>
+/home/chan/Cross-Platform-Podcast/artifacts/api-server/src/index.ts:7
+  throw new Error(
+        ^
+
+Error: PORT environment variable is required but was not provided.
+    at &lt;anonymous&gt; <font color="#5E5C64">(/home/chan/Cross-Platform-Podcast/artifacts/api-server/</font>src/index.ts:7:9<font color="#5E5C64">)</font>
+<font color="#5E5C64">    at ModuleJob.run (node:internal/modules/esm/module_job:437:25)</font>
+    at async node:internal/modules/esm/loader:639:26
+<font color="#5E5C64">    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)</font>
+
+Node.js v24.15.0
+<span style="background-color:#C01C28"><font color="#C01C28">[</font></span><span style="background-color:#C01C28"><font color="#171421">ELIFECYCLE</font></span><span style="background-color:#C01C28"><font color="#C01C28">]</font></span> <font color="#C01C28">Command failed with exit code 1.</font>
+<span style="background-color:#C01C28"><font color="#C01C28">[</font></span><span style="background-color:#C01C28"><font color="#171421">ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL</font></span><span style="background-color:#C01C28"><font color="#C01C28">]</font></span> <font color="#C01C28">@workspace/api-server@0.0.0 dev: `export NODE_ENV=development &amp;&amp; pnpm run build &amp;&amp; pnpm run start`</font>
+<font color="#C01C28">Exit status 1</font>
+<font color="#26A269"><b>chan@chan-iMac14-2</b></font>:<font color="#12488B"><b>~/Cross-Platform-Podcast/artifacts/api-server</b></font>$ 
+</pre>
