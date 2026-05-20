@@ -25,7 +25,10 @@ interface AudioPlayerContextType {
   duration: number;
   isLoading: boolean;
   rate: number;
+  queueLength: number;
+  queueIndex: number;
   play: (episode: PlayerEpisode) => void;
+  playQueue: (episodes: PlayerEpisode[]) => void;
   togglePlayPause: () => void;
   seekTo: (seconds: number) => void;
   setRate: (rate: number) => void;
@@ -42,6 +45,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [rate, setRateState] = useState(1.0);
+  const [autoAdvanceTo, setAutoAdvanceTo] = useState<PlayerEpisode | null>(null);
+
+  const queueRef = useRef<PlayerEpisode[]>([]);
+  const [queueLength, setQueueLength] = useState(0);
+  const [queueIndex, setQueueIndex] = useState(-1);
 
   useEffect(() => {
     setAudioModeAsync({
@@ -61,8 +69,16 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       if (status.duration) setDuration(status.duration);
       if (status.isLoaded) setIsLoading(false);
       if (status.didJustFinish) {
-        setIsPlaying(false);
-        setPosition(0);
+        setQueueIndex((prev) => {
+          const nextIdx = prev + 1;
+          if (nextIdx < queueRef.current.length) {
+            setAutoAdvanceTo(queueRef.current[nextIdx]);
+            return nextIdx;
+          }
+          setIsPlaying(false);
+          setPosition(0);
+          return -1;
+        });
       }
     });
     return sub;
@@ -86,6 +102,23 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       player.play();
     },
     [attachListener],
+  );
+
+  useEffect(() => {
+    if (!autoAdvanceTo) return;
+    setAutoAdvanceTo(null);
+    play(autoAdvanceTo);
+  }, [autoAdvanceTo, play]);
+
+  const playQueue = useCallback(
+    (episodes: PlayerEpisode[]) => {
+      if (episodes.length === 0) return;
+      queueRef.current = episodes;
+      setQueueLength(episodes.length);
+      setQueueIndex(0);
+      play(episodes[0]);
+    },
+    [play]
   );
 
   const togglePlayPause = useCallback(() => {
@@ -118,6 +151,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setIsPlaying(false);
     setPosition(0);
     setDuration(0);
+    queueRef.current = [];
+    setQueueLength(0);
+    setQueueIndex(-1);
   }, []);
 
   return (
@@ -129,7 +165,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         duration,
         isLoading,
         rate,
+        queueLength,
+        queueIndex,
         play,
+        playQueue,
         togglePlayPause,
         seekTo,
         setRate,
