@@ -146,19 +146,24 @@ export function DraggableEpisodeList({
             key={episode.id}
             style={[styles.row, isDragging && { opacity: 0.85 }]}
           >
-            <EpisodeCard
-              episode={episode}
-              isRead={readIds.has(episode.id)}
-              isLocked={lockedSection}
-              onPress={() => onPress(episode)}
-              onLockToggle={() => onLockToggle(episode.id)}
-              isDragging={isDragging}
-            />
             <GestureDetector gesture={gesture}>
-              <View style={[styles.handle, { backgroundColor: colors.card, borderBottomColor: colors.border }]} testID={`drag-handle-${episode.id}`}>
+              <View
+                style={[styles.handle, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
+                testID={`drag-handle-${episode.id}`}
+              >
                 <DragHandleDots color={colors.mutedForeground} />
               </View>
             </GestureDetector>
+            <View style={styles.cardWrapper}>
+              <EpisodeCard
+                episode={episode}
+                isRead={readIds.has(episode.id)}
+                isLocked={lockedSection}
+                onPress={() => onPress(episode)}
+                onLockToggle={() => onLockToggle(episode.id)}
+                isDragging={isDragging}
+              />
+            </View>
           </View>
         );
       })}
@@ -177,5 +182,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexShrink: 0,
+  },
+  cardWrapper: {
+    flex: 1,
+    minWidth: 0,
   },
 });
