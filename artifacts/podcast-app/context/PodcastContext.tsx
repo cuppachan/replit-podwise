@@ -189,7 +189,7 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
       for (let i = 0; i < subscriptions.length; i += 3) {
         const batch = subscriptions.slice(i, i + 3);
         const results = await Promise.allSettled(
-          batch.map((p) => fetchEpisodes(p, Math.min(getBackfillLimit(p), 50)))
+          batch.map((p) => fetchEpisodes(p, 25))
         );
         for (const r of results) {
           if (r.status === 'fulfilled') allEpisodes.push(...r.value);
