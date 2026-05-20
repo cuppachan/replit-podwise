@@ -32,9 +32,17 @@ export const FEED_BEHAVIORS: Record<FeedMode, FeedBehavior> = {
     label: '1 in 10 — serendipity',
     wizardLabel: '1 in 10 — random back-catalog episode',
     description:
-      'A randomly selected back-catalog episode is injected at every 10th slot in your combined inbox.',
-    applyToEpisodes: (episodes) =>
-      [...episodes].sort((a, b) => b.publishedAt - a.publishedAt),
+      'Contributes one recent episode plus one randomly selected back-catalog episode to your inbox.',
+    applyToEpisodes: (episodes) => {
+      if (episodes.length === 0) return [];
+      const sorted = [...episodes].sort((a, b) => b.publishedAt - a.publishedAt);
+      const recent = sorted[0];
+      const backCatalogStart = Math.min(5, sorted.length - 1);
+      const backCatalog = sorted.slice(backCatalogStart);
+      if (backCatalog.length === 0) return [recent];
+      const pick = backCatalog[Math.floor(Math.random() * backCatalog.length)];
+      return pick.id === recent.id ? [recent] : [recent, pick];
+    },
   },
 
   'random-pick': {
