@@ -2,6 +2,12 @@
 
 A cross-platform podcast app (iOS, Android, web) built with Expo. Local-only storage in v1 — no auth, no sync.
 
+## Repository
+
+- GitHub: https://github.com/cuppachan/replit-podwise
+- Local clone: `~/podwise` (recommended path after initial setup)
+- After Replit changes: `git pull` then `./run-local.sh`
+
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
