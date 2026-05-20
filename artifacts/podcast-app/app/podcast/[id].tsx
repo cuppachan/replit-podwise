@@ -9,7 +9,6 @@ import {
   FlatList,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -32,7 +31,7 @@ export default function PodcastDetailScreen() {
     genre: string;
   }>();
 
-  const { subscriptions, subscribe, unsubscribe, isSubscribed } = usePodcast();
+  const { subscriptions, unsubscribe, isSubscribed } = usePodcast();
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -52,6 +51,7 @@ export default function PodcastDetailScreen() {
   };
 
   const subscribed = isSubscribed(params.id);
+  const existingSub = subscriptions.find((p) => p.id === params.id);
 
   useEffect(() => {
     if (!params.feedUrl) return;
@@ -62,14 +62,39 @@ export default function PodcastDetailScreen() {
       .finally(() => setLoading(false));
   }, [params.feedUrl]);
 
-  const handleToggleSubscribe = useCallback(async () => {
+  const handleSubscribe = useCallback(() => {
+    router.push({
+      pathname: '/subscribe-wizard/[id]',
+      params: {
+        id: params.id,
+        title: params.title ?? '',
+        author: params.author ?? '',
+        artwork: params.artwork ?? '',
+        feedUrl: params.feedUrl ?? '',
+        genre: params.genre ?? '',
+      },
+    });
+  }, [params]);
+
+  const handleFeedSettings = useCallback(() => {
+    router.push({
+      pathname: '/subscribe-wizard/[id]',
+      params: {
+        id: params.id,
+        title: params.title ?? '',
+        author: params.author ?? '',
+        artwork: params.artwork ?? '',
+        feedUrl: params.feedUrl ?? '',
+        genre: params.genre ?? '',
+        edit: 'true',
+      },
+    });
+  }, [params]);
+
+  const handleUnsubscribe = useCallback(async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (subscribed) {
-      await unsubscribe(params.id);
-    } else {
-      await subscribe(podcast);
-    }
-  }, [subscribed, params.id, podcast, subscribe, unsubscribe]);
+    await unsubscribe(params.id);
+  }, [params.id, unsubscribe]);
 
   const isWeb = Platform.OS === 'web';
   const topInset = isWeb ? 67 : insets.top;
@@ -106,6 +131,10 @@ export default function PodcastDetailScreen() {
     ),
     [colors]
   );
+
+  const currentFeedModeTags = existingSub?.tags?.length
+    ? existingSub.tags.slice(0, 3).join(', ')
+    : null;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -157,30 +186,63 @@ export default function PodcastDetailScreen() {
                 ) : null}
               </View>
             </View>
+
             <View style={styles.actions}>
-              <Pressable
-                style={[
-                  styles.subscribeBtn,
-                  { backgroundColor: subscribed ? colors.secondary : colors.primary, borderRadius: colors.radius },
-                ]}
-                onPress={handleToggleSubscribe}
-                testID="detail-subscribe-button"
-              >
-                <Ionicons
-                  name={subscribed ? 'checkmark' : 'add'}
-                  size={18}
-                  color={subscribed ? colors.foreground : '#fff'}
-                />
-                <Text
+              {subscribed ? (
+                <View style={styles.subscribedRow}>
+                  <View
+                    style={[
+                      styles.subscribedBadge,
+                      { backgroundColor: colors.secondary, borderRadius: colors.radius },
+                    ]}
+                  >
+                    <Ionicons name="checkmark" size={16} color={colors.foreground} />
+                    <Text style={[styles.subscribedText, { color: colors.foreground }]}>
+                      Subscribed
+                    </Text>
+                    {currentFeedModeTags ? (
+                      <Text style={[styles.tagsBadge, { color: colors.mutedForeground }]}>
+                        · {currentFeedModeTags}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Pressable
+                    style={[
+                      styles.feedSettingsBtn,
+                      { backgroundColor: colors.input, borderRadius: colors.radius },
+                    ]}
+                    onPress={handleFeedSettings}
+                    testID="feed-settings-button"
+                  >
+                    <Ionicons name="settings-outline" size={15} color={colors.foreground} />
+                    <Text style={[styles.feedSettingsText, { color: colors.foreground }]}>
+                      Feed settings
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={handleUnsubscribe}
+                    hitSlop={8}
+                    style={styles.unsubscribeBtn}
+                    testID="unsubscribe-icon-button"
+                  >
+                    <Ionicons name="trash-outline" size={18} color={colors.mutedForeground} />
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable
                   style={[
-                    styles.subscribeBtnText,
-                    { color: subscribed ? colors.foreground : '#fff' },
+                    styles.subscribeBtn,
+                    { backgroundColor: colors.primary, borderRadius: colors.radius },
                   ]}
+                  onPress={handleSubscribe}
+                  testID="detail-subscribe-button"
                 >
-                  {subscribed ? 'Subscribed' : 'Subscribe'}
-                </Text>
-              </Pressable>
+                  <Ionicons name="add" size={18} color="#fff" />
+                  <Text style={[styles.subscribeBtnText, { color: '#fff' }]}>Subscribe</Text>
+                </Pressable>
+              )}
             </View>
+
             <Text style={[styles.episodesLabel, { color: colors.foreground, borderBottomColor: colors.border }]}>
               Episodes
             </Text>
@@ -245,6 +307,30 @@ const styles = StyleSheet.create({
   },
   genreText: { fontSize: 11, fontFamily: 'Inter_500Medium' },
   actions: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
+  subscribedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  subscribedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flex: 1,
+  },
+  subscribedText: { fontSize: 14, fontFamily: 'Inter_500Medium' },
+  tagsBadge: { fontSize: 12, fontFamily: 'Inter_400Regular', flexShrink: 1 },
+  feedSettingsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  feedSettingsText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
+  unsubscribeBtn: { padding: 8 },
   subscribeBtn: {
     flexDirection: 'row',
     alignItems: 'center',

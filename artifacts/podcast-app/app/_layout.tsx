@@ -33,6 +33,10 @@ function RootLayoutNav() {
         name="episode/[id]"
         options={{ headerShown: false, presentation: "card" }}
       />
+      <Stack.Screen
+        name="subscribe-wizard/[id]"
+        options={{ headerShown: false, presentation: "modal" }}
+      />
     </Stack>
   );
 }
