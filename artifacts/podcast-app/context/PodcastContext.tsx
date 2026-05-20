@@ -4,33 +4,13 @@ import { parseOPML } from '@/services/opmlParser';
 import { fetchEpisodes, fetchFeedXML, parseChannelMeta } from '@/services/rssFetcher';
 import { itunesResultToPodcast } from '@/services/itunesApi';
 import type { ItunesResult } from '@/services/itunesApi';
+import { buildFreshInbox } from '@/services/inboxBuilder';
 import type { Episode, Podcast } from '@/types/podcast';
 import { withPodcastDefaults } from '@/types/podcast';
-import { applyFeedBehavior } from '@/services/feedBehaviors';
 
 const SUBS_KEY = '@podcast_subscriptions';
 const INBOX_KEY = '@podcast_inbox';
 const READ_KEY = '@podcast_read_ids';
-
-function roundRobinMerge(groups: Episode[][]): Episode[] {
-  const result: Episode[] = [];
-  const maxLen = Math.max(0, ...groups.map((g) => g.length));
-  for (let i = 0; i < maxLen; i++) {
-    for (const group of groups) {
-      if (i < group.length) result.push(group[i]);
-    }
-  }
-  return result;
-}
-
-function getBackfillLimit(podcast: Podcast): number {
-  switch (podcast.backfill) {
-    case 'latest-only': return 1;
-    case 'last-N': return podcast.backfillCount ?? 10;
-    case 'all': return 9999;
-    default: return 1;
-  }
-}
 
 interface PodcastContextType {
   subscriptions: Podcast[];
@@ -100,13 +80,12 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
     try {
-      const limit = getBackfillLimit(full);
-      const rawEpisodes = await fetchEpisodes(full, limit);
-      const episodes = applyFeedBehavior(rawEpisodes, full);
+      const rawEpisodes = await fetchEpisodes(full, 9999);
+      const episodes = buildFreshInbox([{ podcast: full, rawEpisodes }]);
       setInbox((prev) => {
         const existingIds = new Set(prev.map((e) => e.id));
         const fresh = episodes.filter((e) => !existingIds.has(e.id));
-        const next = [...fresh, ...prev].slice(0, 200);
+        const next = [...fresh, ...prev].slice(0, 500);
         saveJSON(INBOX_KEY, next);
         return next;
       });
@@ -198,24 +177,24 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
     if (subscriptions.length === 0) return;
     setRefreshing(true);
     try {
-      const episodeGroups: Episode[][] = [];
+      const entries: Array<{ podcast: Podcast; rawEpisodes: Episode[] }> = [];
       for (let i = 0; i < subscriptions.length; i += 3) {
         const batch = subscriptions.slice(i, i + 3);
         const results = await Promise.allSettled(
-          batch.map(async (p) => {
-            const raw = await fetchEpisodes(p, 25);
-            return applyFeedBehavior(raw, p);
-          })
+          batch.map(async (p) => ({
+            podcast: p,
+            rawEpisodes: await fetchEpisodes(p, 25),
+          }))
         );
         for (const r of results) {
-          if (r.status === 'fulfilled') episodeGroups.push(r.value);
+          if (r.status === 'fulfilled') entries.push(r.value);
         }
       }
-      const allEpisodes = roundRobinMerge(episodeGroups);
+      const allEpisodes = buildFreshInbox(entries);
       setInbox((prev) => {
         const existingIds = new Set(prev.map((e) => e.id));
         const fresh = allEpisodes.filter((e) => !existingIds.has(e.id));
-        const next = [...fresh, ...prev].slice(0, 200);
+        const next = [...fresh, ...prev].slice(0, 500);
         saveJSON(INBOX_KEY, next);
         return next;
       });
