@@ -6,6 +6,7 @@ import { itunesResultToPodcast } from '@/services/itunesApi';
 import type { ItunesResult } from '@/services/itunesApi';
 import type { Episode, Podcast } from '@/types/podcast';
 import { withPodcastDefaults } from '@/types/podcast';
+import { applyFeedBehavior } from '@/services/feedBehaviors';
 
 const SUBS_KEY = '@podcast_subscriptions';
 const INBOX_KEY = '@podcast_inbox';
@@ -14,7 +15,7 @@ const READ_KEY = '@podcast_read_ids';
 function getBackfillLimit(podcast: Podcast): number {
   switch (podcast.backfill) {
     case 'latest-only': return 1;
-    case 'last-n': return podcast.backfillCount ?? 10;
+    case 'last-N': return podcast.backfillCount ?? 10;
     case 'all': return 9999;
     default: return 1;
   }
@@ -89,7 +90,8 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
     });
     try {
       const limit = getBackfillLimit(full);
-      const episodes = await fetchEpisodes(full, limit);
+      const rawEpisodes = await fetchEpisodes(full, limit);
+      const episodes = applyFeedBehavior(rawEpisodes, full);
       setInbox((prev) => {
         const existingIds = new Set(prev.map((e) => e.id));
         const fresh = episodes.filter((e) => !existingIds.has(e.id));
@@ -189,7 +191,10 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
       for (let i = 0; i < subscriptions.length; i += 3) {
         const batch = subscriptions.slice(i, i + 3);
         const results = await Promise.allSettled(
-          batch.map((p) => fetchEpisodes(p, 25))
+          batch.map(async (p) => {
+            const raw = await fetchEpisodes(p, 25);
+            return applyFeedBehavior(raw, p);
+          })
         );
         for (const r of results) {
           if (r.status === 'fulfilled') allEpisodes.push(...r.value);
