@@ -56,7 +56,7 @@ const env = {
   ...process.env,
   PORT: String(EXPO_PORT),
   EXPO_PACKAGER_PROXY_URL: `https://${process.env.REPLIT_EXPO_DEV_DOMAIN}`,
-  EXPO_PUBLIC_DOMAIN: process.env.REPLIT_DEV_DOMAIN,
+  EXPO_PUBLIC_DOMAIN: process.env.REPLIT_DEV_DOMAIN ?? process.env.EXPO_PUBLIC_DOMAIN,
   EXPO_PUBLIC_REPL_ID: process.env.REPL_ID,
   REACT_NATIVE_PACKAGER_HOSTNAME: process.env.REPLIT_DEV_DOMAIN,
 };
