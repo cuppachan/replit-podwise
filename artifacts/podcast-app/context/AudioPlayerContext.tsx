@@ -27,6 +27,7 @@ interface AudioPlayerContextType {
   rate: number;
   queueLength: number;
   queueIndex: number;
+  lastFinishedEpisodeId: string | null;
   play: (episode: PlayerEpisode) => void;
   playQueue: (episodes: PlayerEpisode[]) => void;
   togglePlayPause: () => void;
@@ -46,6 +47,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [isLoading, setIsLoading] = useState(false);
   const [rate, setRateState] = useState(1.0);
   const [autoAdvanceTo, setAutoAdvanceTo] = useState<PlayerEpisode | null>(null);
+  const [lastFinishedEpisodeId, setLastFinishedEpisodeId] = useState<string | null>(null);
 
   const queueRef = useRef<PlayerEpisode[]>([]);
   const [queueLength, setQueueLength] = useState(0);
@@ -62,13 +64,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     };
   }, []);
 
-  const attachListener = useCallback((player: AudioPlayer) => {
+  const attachListener = useCallback((player: AudioPlayer, ep: PlayerEpisode) => {
     player.addListener('playbackStatusUpdate', (status: AudioStatus) => {
       setIsPlaying(status.playing);
       setPosition(status.currentTime);
       if (status.duration) setDuration(status.duration);
       if (status.isLoaded) setIsLoading(false);
       if (status.didJustFinish) {
+        setLastFinishedEpisodeId(ep.id);
         setQueueIndex((prev) => {
           const nextIdx = prev + 1;
           if (nextIdx < queueRef.current.length) {
@@ -85,10 +88,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     });
   }, []);
 
-  /**
-   * Internal: starts the player for an episode without touching queue state.
-   * Called by play(), playQueue(), and auto-advance.
-   */
   const startEpisode = useCallback(
     (ep: PlayerEpisode) => {
       if (playerRef.current) {
@@ -102,15 +101,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setIsLoading(true);
       const player = createAudioPlayer({ uri: ep.audioUrl }, { updateInterval: 500 });
       playerRef.current = player;
-      attachListener(player);
+      attachListener(player, ep);
       player.play();
     },
     [attachListener],
   );
 
-  /**
-   * Public: play a single episode, clearing any active queue.
-   */
   const play = useCallback(
     (ep: PlayerEpisode) => {
       queueRef.current = [];
@@ -121,10 +117,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     [startEpisode],
   );
 
-  /**
-   * Public: queue a list of episodes and begin playing from the first.
-   * Auto-advances through the list on episode completion.
-   */
   const playQueue = useCallback(
     (episodes: PlayerEpisode[]) => {
       if (episodes.length === 0) return;
@@ -185,6 +177,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         rate,
         queueLength,
         queueIndex,
+        lastFinishedEpisodeId,
         play,
         playQueue,
         togglePlayPause,

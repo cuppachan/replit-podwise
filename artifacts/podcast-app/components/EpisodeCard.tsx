@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -16,10 +17,20 @@ function formatDate(ts: number): string {
 interface Props {
   episode: Episode;
   isRead: boolean;
+  isLocked?: boolean;
   onPress: () => void;
+  onLockToggle?: () => void;
+  isDragging?: boolean;
 }
 
-export function EpisodeCard({ episode, isRead, onPress }: Props) {
+export function EpisodeCard({
+  episode,
+  isRead,
+  isLocked,
+  onPress,
+  onLockToggle,
+  isDragging,
+}: Props) {
   const colors = useColors();
 
   return (
@@ -27,10 +38,11 @@ export function EpisodeCard({ episode, isRead, onPress }: Props) {
       style={({ pressed }) => [
         styles.container,
         {
-          backgroundColor: colors.card,
+          backgroundColor: isDragging ? colors.input : colors.card,
           borderBottomColor: colors.border,
-          opacity: pressed ? 0.75 : 1,
+          opacity: pressed && !isDragging ? 0.75 : 1,
         },
+        isDragging && styles.dragging,
       ]}
       onPress={onPress}
       testID="episode-card"
@@ -64,6 +76,21 @@ export function EpisodeCard({ episode, isRead, onPress }: Props) {
           </Text>
         </View>
       </View>
+
+      {onLockToggle !== undefined && (
+        <Pressable
+          onPress={onLockToggle}
+          style={styles.lockButton}
+          hitSlop={8}
+          testID={`lock-toggle-${episode.id}`}
+        >
+          <Ionicons
+            name={isLocked ? 'lock-closed' : 'lock-open-outline'}
+            size={16}
+            color={isLocked ? colors.primary : colors.mutedForeground}
+          />
+        </Pressable>
+      )}
     </Pressable>
   );
 }
@@ -76,6 +103,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 12,
+  },
+  dragging: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 6,
   },
   artwork: {
     width: 64,
@@ -110,5 +144,10 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
+  },
+  lockButton: {
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -11,11 +11,15 @@ import { withPodcastDefaults } from '@/types/podcast';
 const SUBS_KEY = '@podcast_subscriptions';
 const INBOX_KEY = '@podcast_inbox';
 const READ_KEY = '@podcast_read_ids';
+const LOCKED_KEY = '@podcast_locked_ids';
+const ORDER_KEY = '@podcast_manual_order';
 
 interface PodcastContextType {
   subscriptions: Podcast[];
   inbox: Episode[];
   readIds: Set<string>;
+  lockedIds: string[];
+  manualOrder: string[];
   loading: boolean;
   refreshing: boolean;
   subscribe: (podcast: Podcast) => Promise<void>;
@@ -29,6 +33,11 @@ interface PodcastContextType {
   subscribeFromItunes: (result: ItunesResult) => Promise<void>;
   refreshInbox: () => Promise<void>;
   markRead: (episodeId: string) => Promise<void>;
+  lockEpisode: (id: string) => void;
+  unlockEpisode: (id: string) => void;
+  unlockIfLocked: (id: string) => void;
+  reorderLocked: (fromIndex: number, toIndex: number) => void;
+  updateManualOrder: (ids: string[]) => void;
 }
 
 const PodcastContext = createContext<PodcastContextType | null>(null);
@@ -50,6 +59,8 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
   const [subscriptions, setSubscriptions] = useState<Podcast[]>([]);
   const [inbox, setInbox] = useState<Episode[]>([]);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [lockedIds, setLockedIds] = useState<string[]>([]);
+  const [manualOrder, setManualOrder] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const initialized = useRef(false);
@@ -58,15 +69,19 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
     if (initialized.current) return;
     initialized.current = true;
     (async () => {
-      const [rawSubs, eps, rids] = await Promise.all([
+      const [rawSubs, eps, rids, locked, order] = await Promise.all([
         loadJSON<Podcast[]>(SUBS_KEY, []),
         loadJSON<Episode[]>(INBOX_KEY, []),
         loadJSON<string[]>(READ_KEY, []),
+        loadJSON<string[]>(LOCKED_KEY, []),
+        loadJSON<string[]>(ORDER_KEY, []),
       ]);
       const subs = rawSubs.map((p) => withPodcastDefaults(p));
       setSubscriptions(subs);
       setInbox(eps);
       setReadIds(new Set(rids));
+      setLockedIds(locked);
+      setManualOrder(order);
       setLoading(false);
     })();
   }, []);
@@ -101,6 +116,11 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
     setInbox((prev) => {
       const next = prev.filter((e) => e.podcastId !== podcastId);
       saveJSON(INBOX_KEY, next);
+      return next;
+    });
+    setLockedIds((prev) => {
+      const next = prev.filter((id) => !id.startsWith(podcastId));
+      saveJSON(LOCKED_KEY, next);
       return next;
     });
   }, []);
@@ -212,12 +232,56 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const lockEpisode = useCallback((id: string) => {
+    setLockedIds((prev) => {
+      if (prev.includes(id)) return prev;
+      const next = [id, ...prev];
+      saveJSON(LOCKED_KEY, next);
+      return next;
+    });
+  }, []);
+
+  const unlockEpisode = useCallback((id: string) => {
+    setLockedIds((prev) => {
+      if (!prev.includes(id)) return prev;
+      const next = prev.filter((lid) => lid !== id);
+      saveJSON(LOCKED_KEY, next);
+      return next;
+    });
+  }, []);
+
+  const unlockIfLocked = useCallback((id: string) => {
+    setLockedIds((prev) => {
+      if (!prev.includes(id)) return prev;
+      const next = prev.filter((lid) => lid !== id);
+      saveJSON(LOCKED_KEY, next);
+      return next;
+    });
+  }, []);
+
+  const reorderLocked = useCallback((fromIndex: number, toIndex: number) => {
+    setLockedIds((prev) => {
+      const next = [...prev];
+      const [removed] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, removed);
+      saveJSON(LOCKED_KEY, next);
+      return next;
+    });
+  }, []);
+
+  const updateManualOrder = useCallback((ids: string[]) => {
+    setManualOrder(ids);
+    saveJSON(ORDER_KEY, ids);
+  }, []);
+
   return (
     <PodcastContext.Provider
       value={{
         subscriptions,
         inbox,
         readIds,
+        lockedIds,
+        manualOrder,
         loading,
         refreshing,
         subscribe,
@@ -228,6 +292,11 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
         importFromOPML,
         refreshInbox,
         markRead,
+        lockEpisode,
+        unlockEpisode,
+        unlockIfLocked,
+        reorderLocked,
+        updateManualOrder,
       }}
     >
       {children}
