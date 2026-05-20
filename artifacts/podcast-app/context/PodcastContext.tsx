@@ -12,6 +12,17 @@ const SUBS_KEY = '@podcast_subscriptions';
 const INBOX_KEY = '@podcast_inbox';
 const READ_KEY = '@podcast_read_ids';
 
+function roundRobinMerge(groups: Episode[][]): Episode[] {
+  const result: Episode[] = [];
+  const maxLen = Math.max(0, ...groups.map((g) => g.length));
+  for (let i = 0; i < maxLen; i++) {
+    for (const group of groups) {
+      if (i < group.length) result.push(group[i]);
+    }
+  }
+  return result;
+}
+
 function getBackfillLimit(podcast: Podcast): number {
   switch (podcast.backfill) {
     case 'latest-only': return 1;
@@ -95,7 +106,7 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
       setInbox((prev) => {
         const existingIds = new Set(prev.map((e) => e.id));
         const fresh = episodes.filter((e) => !existingIds.has(e.id));
-        const next = [...fresh, ...prev].sort((a, b) => b.publishedAt - a.publishedAt);
+        const next = [...fresh, ...prev].slice(0, 200);
         saveJSON(INBOX_KEY, next);
         return next;
       });
@@ -187,7 +198,7 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
     if (subscriptions.length === 0) return;
     setRefreshing(true);
     try {
-      const allEpisodes: Episode[] = [];
+      const episodeGroups: Episode[][] = [];
       for (let i = 0; i < subscriptions.length; i += 3) {
         const batch = subscriptions.slice(i, i + 3);
         const results = await Promise.allSettled(
@@ -197,17 +208,16 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
           })
         );
         for (const r of results) {
-          if (r.status === 'fulfilled') allEpisodes.push(...r.value);
+          if (r.status === 'fulfilled') episodeGroups.push(r.value);
         }
       }
+      const allEpisodes = roundRobinMerge(episodeGroups);
       setInbox((prev) => {
         const existingIds = new Set(prev.map((e) => e.id));
         const fresh = allEpisodes.filter((e) => !existingIds.has(e.id));
-        const merged = [...fresh, ...prev]
-          .sort((a, b) => b.publishedAt - a.publishedAt)
-          .slice(0, 200);
-        saveJSON(INBOX_KEY, merged);
-        return merged;
+        const next = [...fresh, ...prev].slice(0, 200);
+        saveJSON(INBOX_KEY, next);
+        return next;
       });
     } finally {
       setRefreshing(false);
