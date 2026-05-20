@@ -7,7 +7,6 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { usePodcast } from '@/context/PodcastContext';
 import type { ItunesResult } from '@/services/itunesApi';
-import { itunesResultToPodcast } from '@/services/itunesApi';
 
 interface Props {
   result: ItunesResult;
@@ -16,20 +15,29 @@ interface Props {
 
 export function PodcastCard({ result, showSubscribeButton = true }: Props) {
   const colors = useColors();
-  const { isSubscribed, subscribe, unsubscribe } = usePodcast();
+  const { isSubscribed, unsubscribe } = usePodcast();
 
   const podcastId = `itunes_${result.collectionId}`;
   const subscribed = isSubscribed(podcastId);
 
-  const handleSubscribe = useCallback(async () => {
+  const handleSubscribePress = useCallback(async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (subscribed) {
       await unsubscribe(podcastId);
     } else {
-      const podcast = itunesResultToPodcast(result);
-      await subscribe(podcast);
+      router.push({
+        pathname: '/subscribe-wizard/[id]',
+        params: {
+          id: podcastId,
+          title: result.collectionName,
+          author: result.artistName,
+          artwork: result.artworkUrl600 ?? result.artworkUrl100 ?? '',
+          feedUrl: result.feedUrl,
+          genre: result.primaryGenreName ?? '',
+        },
+      });
     }
-  }, [subscribed, podcastId, result, subscribe, unsubscribe]);
+  }, [subscribed, podcastId, result, unsubscribe]);
 
   const handlePress = useCallback(() => {
     router.push({
@@ -77,7 +85,7 @@ export function PodcastCard({ result, showSubscribeButton = true }: Props) {
       </View>
       {showSubscribeButton && (
         <Pressable
-          onPress={handleSubscribe}
+          onPress={handleSubscribePress}
           style={[
             styles.subscribeBtn,
             { backgroundColor: subscribed ? colors.secondary : colors.primary },
