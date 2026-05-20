@@ -30,5 +30,8 @@ export function itunesResultToPodcast(result: ItunesResult): Podcast {
     genre: result.primaryGenreName,
     episodeCount: result.trackCount,
     subscribedAt: Date.now(),
+    tags: [],
+    feedMode: 'default',
+    backfill: 'latest-only',
   };
 }
