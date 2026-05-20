@@ -1,5 +1,5 @@
 export type FeedMode = 'default' | 'reverse' | '1-in-10' | 'random-pick';
-export type BackfillMode = 'latest-only' | 'last-n' | 'all';
+export type BackfillMode = 'latest-only' | 'last-N' | 'all';
 
 export interface Podcast {
   id: string;
@@ -34,7 +34,7 @@ export interface Episode {
 export const PODCAST_DEFAULTS: Pick<Podcast, 'tags' | 'feedMode' | 'backfill'> = {
   tags: [],
   feedMode: 'default',
-  backfill: 'latest-only',
+  backfill: 'latest-only' as BackfillMode,
 };
 
 export function withPodcastDefaults(p: Partial<Podcast> & Pick<Podcast, 'id' | 'title' | 'feedUrl' | 'subscribedAt'>): Podcast {
