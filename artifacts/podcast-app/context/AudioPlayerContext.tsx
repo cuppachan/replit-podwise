@@ -71,10 +71,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       if (status.didJustFinish) {
         setQueueIndex((prev) => {
           const nextIdx = prev + 1;
-          if (nextIdx < queueRef.current.length) {
+          if (prev >= 0 && nextIdx < queueRef.current.length) {
             setAutoAdvanceTo(queueRef.current[nextIdx]);
             return nextIdx;
           }
+          queueRef.current = [];
+          setQueueLength(0);
           setIsPlaying(false);
           setPosition(0);
           return -1;
@@ -90,6 +92,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         playerRef.current.remove();
         playerRef.current = null;
       }
+      queueRef.current = [];
+      setQueueLength(0);
+      setQueueIndex(-1);
       setEpisode(ep);
       setPosition(0);
       setDuration(0);
