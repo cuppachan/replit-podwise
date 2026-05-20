@@ -5,10 +5,20 @@ import { fetchEpisodes, fetchFeedXML, parseChannelMeta } from '@/services/rssFet
 import { itunesResultToPodcast } from '@/services/itunesApi';
 import type { ItunesResult } from '@/services/itunesApi';
 import type { Episode, Podcast } from '@/types/podcast';
+import { withPodcastDefaults } from '@/types/podcast';
 
 const SUBS_KEY = '@podcast_subscriptions';
 const INBOX_KEY = '@podcast_inbox';
 const READ_KEY = '@podcast_read_ids';
+
+function getBackfillLimit(podcast: Podcast): number {
+  switch (podcast.backfill) {
+    case 'latest-only': return 1;
+    case 'last-n': return podcast.backfillCount ?? 10;
+    case 'all': return 9999;
+    default: return 1;
+  }
+}
 
 interface PodcastContextType {
   subscriptions: Podcast[];
@@ -19,6 +29,10 @@ interface PodcastContextType {
   subscribe: (podcast: Podcast) => Promise<void>;
   unsubscribe: (podcastId: string) => Promise<void>;
   isSubscribed: (podcastId: string) => boolean;
+  updateSubscription: (
+    podcastId: string,
+    updates: Partial<Pick<Podcast, 'tags' | 'feedMode' | 'backfill' | 'backfillCount'>>
+  ) => Promise<void>;
   importFromOPML: (opmlText: string) => Promise<{ added: number; errors: number }>;
   subscribeFromItunes: (result: ItunesResult) => Promise<void>;
   refreshInbox: () => Promise<void>;
@@ -52,11 +66,12 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
     if (initialized.current) return;
     initialized.current = true;
     (async () => {
-      const [subs, eps, rids] = await Promise.all([
+      const [rawSubs, eps, rids] = await Promise.all([
         loadJSON<Podcast[]>(SUBS_KEY, []),
         loadJSON<Episode[]>(INBOX_KEY, []),
         loadJSON<string[]>(READ_KEY, []),
       ]);
+      const subs = rawSubs.map((p) => withPodcastDefaults(p));
       setSubscriptions(subs);
       setInbox(eps);
       setReadIds(new Set(rids));
@@ -65,14 +80,16 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const subscribe = useCallback(async (podcast: Podcast) => {
+    const full = withPodcastDefaults(podcast);
     setSubscriptions((prev) => {
-      if (prev.some((p) => p.id === podcast.id)) return prev;
-      const next = [podcast, ...prev];
+      if (prev.some((p) => p.id === full.id)) return prev;
+      const next = [full, ...prev];
       saveJSON(SUBS_KEY, next);
       return next;
     });
     try {
-      const episodes = await fetchEpisodes(podcast, 10);
+      const limit = getBackfillLimit(full);
+      const episodes = await fetchEpisodes(full, limit);
       setInbox((prev) => {
         const existingIds = new Set(prev.map((e) => e.id));
         const fresh = episodes.filter((e) => !existingIds.has(e.id));
@@ -101,6 +118,20 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
     [subscriptions]
   );
 
+  const updateSubscription = useCallback(
+    async (
+      podcastId: string,
+      updates: Partial<Pick<Podcast, 'tags' | 'feedMode' | 'backfill' | 'backfillCount'>>
+    ) => {
+      setSubscriptions((prev) => {
+        const next = prev.map((p) => (p.id === podcastId ? { ...p, ...updates } : p));
+        saveJSON(SUBS_KEY, next);
+        return next;
+      });
+    },
+    []
+  );
+
   const subscribeFromItunes = useCallback(
     async (result: ItunesResult) => {
       const podcast = itunesResultToPodcast(result);
@@ -115,7 +146,6 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
       let added = 0;
       let errors = 0;
       const alreadySubscribed = new Set(subscriptions.map((p) => p.feedUrl));
-
       const toImport = entries.filter((e) => !alreadySubscribed.has(e.feedUrl));
 
       for (let i = 0; i < toImport.length; i += 3) {
@@ -125,9 +155,11 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
             try {
               const xml = await fetchFeedXML(entry.feedUrl);
               const meta = parseChannelMeta(xml);
-              const podcast: Podcast = {
+              const podcast = withPodcastDefaults({
                 id: `opml_${Math.abs(
-                  entry.feedUrl.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) & 0x7fffffff, 0)
+                  entry.feedUrl
+                    .split('')
+                    .reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) & 0x7fffffff, 0)
                 ).toString(36)}`,
                 title: meta.title || entry.title,
                 author: meta.author,
@@ -135,7 +167,7 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
                 artwork: meta.artwork,
                 feedUrl: entry.feedUrl,
                 subscribedAt: Date.now(),
-              };
+              });
               await subscribe(podcast);
               added++;
             } catch {
@@ -157,7 +189,7 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
       for (let i = 0; i < subscriptions.length; i += 3) {
         const batch = subscriptions.slice(i, i + 3);
         const results = await Promise.allSettled(
-          batch.map((p) => fetchEpisodes(p, 10))
+          batch.map((p) => fetchEpisodes(p, Math.min(getBackfillLimit(p), 50)))
         );
         for (const r of results) {
           if (r.status === 'fulfilled') allEpisodes.push(...r.value);
@@ -166,7 +198,9 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
       setInbox((prev) => {
         const existingIds = new Set(prev.map((e) => e.id));
         const fresh = allEpisodes.filter((e) => !existingIds.has(e.id));
-        const merged = [...fresh, ...prev].sort((a, b) => b.publishedAt - a.publishedAt).slice(0, 200);
+        const merged = [...fresh, ...prev]
+          .sort((a, b) => b.publishedAt - a.publishedAt)
+          .slice(0, 200);
         saveJSON(INBOX_KEY, merged);
         return merged;
       });
@@ -195,6 +229,7 @@ export function PodcastProvider({ children }: { children: React.ReactNode }) {
         subscribe,
         unsubscribe,
         isSubscribed,
+        updateSubscription,
         subscribeFromItunes,
         importFromOPML,
         refreshInbox,

@@ -46,6 +46,9 @@ export default function PodcastDetailScreen() {
     feedUrl: params.feedUrl ?? '',
     genre: params.genre ?? undefined,
     subscribedAt: Date.now(),
+    tags: [],
+    feedMode: 'default',
+    backfill: 'latest-only',
   };
 
   const subscribed = isSubscribed(params.id);
