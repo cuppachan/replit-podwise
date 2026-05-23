@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { type Podcast } from '@/types/podcast';
 
 export interface ItunesResult {
@@ -11,8 +12,20 @@ export interface ItunesResult {
   trackCount?: number;
 }
 
+const _domain = process.env.EXPO_PUBLIC_DOMAIN ?? '';
+const API_BASE = _domain
+  ? _domain.startsWith('http://') || _domain.startsWith('https://')
+    ? _domain
+    : `https://${_domain}`
+  : '';
+
 export async function searchPodcasts(query: string): Promise<ItunesResult[]> {
-  const url = `https://itunes.apple.com/search?media=podcast&term=${encodeURIComponent(query)}&limit=25`;
+  let url: string;
+  if (Platform.OS === 'web' || API_BASE) {
+    url = `${API_BASE}/api/itunes/search?term=${encodeURIComponent(query)}&limit=25`;
+  } else {
+    url = `https://itunes.apple.com/search?media=podcast&term=${encodeURIComponent(query)}&limit=25`;
+  }
   const response = await fetch(url);
   if (!response.ok) throw new Error(`iTunes search failed: ${response.status}`);
   const data = await response.json();
